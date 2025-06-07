@@ -101,7 +101,7 @@ export default function HomePage() {
       const token = await storage.getToken();
       if (!token) return;
 
-      const response = await fetch('http://15.229.11.44:3000/profile', {
+      const response = await fetch('http://3.21.234.78:3000/profile', {
         headers: {
           Authorization: 'Bearer ' + token,
         },
@@ -114,21 +114,13 @@ export default function HomePage() {
     }
   };
 
-  const avatarMap: Record<string, any> = {
-    avatar_1: require('../assets/avatars/avatar1.png'),
-    avatar_2: require('../assets/avatars/avatar2.png'),
-    avatar_3: require('../assets/avatars/avatar3.png'),
-    avatar_4: require('../assets/avatars/avatar4.png'),
-    avatar_5: require('../assets/avatars/avatar5.png'),
-  };
-
   const loadTasksFromAPI = async () => {
     setIsLoading(true);
     try {
       const token = await storage.getToken();
       if (!token) return;
 
-      const response = await fetch('http://15.229.11.44:3000/tasks', {
+      const response = await fetch('http://3.21.234.78:3000/tasks', {
         headers: {
           Authorization: 'Bearer ' + token,
         },
@@ -157,7 +149,7 @@ export default function HomePage() {
 
       console.log('Conteúdo enviado no POST:', body);
 
-      const response = await fetch('http://15.229.11.44:3000/tasks', {
+      const response = await fetch('http://3.21.234.78:3000/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,30 +224,33 @@ export default function HomePage() {
       </View>
   );
 
+  if (isLoading) {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F4F4' }}>
+      <ActivityIndicator size="large" color="#583CC4" />
+    </View>
+  );
+  }
+
   return (
       <View style={styles.screen}>
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>TASKLY</Text>
             <Avatar.Image
-                size={45}
-                source={
-                  profile?.picture
-                      ? avatarMap[profile.picture]
-                      : require('../assets/avatars/ellipse1.png')
-                }
+              size={45}
+              source={
+                profile?.picture
+                  ? { uri: `https://taskly-avatars.s3.us-east-2.amazonaws.com/${profile.picture}.png` }
+                  : require('../assets/avatars/ellipse1.png')
+              }
             />
           </View>
-
           <TouchableOpacity style={styles.filtro}>
             <Image source={require('../assets/avatars/filtro.png')} />
           </TouchableOpacity>
 
-          {isLoading ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#583CC4" />
-              </View>
-          ) : tasks.length === 0 ? (
+              {tasks.length === 0 ? (
               <View style={styles.card}>
                 <Image source={require('../assets/avatars/sad.png')} />
                 <Text style={styles.label}>No momento você não possui tarefa</Text>

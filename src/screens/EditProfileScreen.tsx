@@ -22,13 +22,20 @@ export default function EditProfileScreen() {
     if (profile) {
       setName(profile.name || '');
       setPhoneNumber(profile.phone_number || '');
-      setEmail(profile.email || '');
+      if (profile.email) {
+        setEmail(profile.email);
+      } else {
+        console.warn('⚠️ Email não encontrado no perfil');
+      }
     }
   }, [profile]);
 
   const handleSave = async () => {
     try {
-      await updateProfile({ name, phone_number, email });
+      await updateProfile({
+        name,
+        phone_number: phone_number.replace(/\D/g, '')  // remove qualquer caractere que não seja número
+      });
       Alert.alert('Sucesso', 'Informações atualizadas com sucesso!');
       navigation.goBack();
     } catch (error) {
@@ -39,12 +46,13 @@ export default function EditProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#1E1E1E' : '#fff' }]}>
       <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Text style={[styles.backText, { color: isDarkMode ? '#fff' : '#fff' }]}>‹  VOLTAR</Text>
-            </TouchableOpacity>
-              <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#000' }]}>EDIÇÃO DE PERFIL</Text>
-              <View style={{ width: 80 }} />
-            </View>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backText, { color: isDarkMode ? '#fff' : '#fff' }]}>‹  VOLTAR</Text>
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: isDarkMode ? '#fff' : '#000' }]}>EDIÇÃO DE PERFIL</Text>
+        <View style={{ width: 80 }} />
+      </View>
+
       <Text style={[styles.labelname, { color: isDarkMode ? '#fff' : '#000' }]}>Nome</Text>
       <TextInput
         style={[styles.input, { backgroundColor: isDarkMode ? '#333' : '#eee', color: isDarkMode ? '#fff' : '#000' }]}
@@ -87,7 +95,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 6,
     fontWeight: '600',
-    marginTop:80,
+    marginTop: 80,
   },
   label: {
     fontSize: 16,
@@ -138,6 +146,6 @@ const styles = StyleSheet.create({
     marginRight: 50,
     marginLeft: 5,
     padding: 10,
-    borderRadius:20,
+    borderRadius: 20,
   },
 });

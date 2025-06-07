@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { RootStackParamList } from '../navigation/types';
-import { useNavigation } from '@react-navigation/native';
-import { useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { TaskDetailRouteProp } from '../navigation/types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { storage } from '../utils/storage';
+import api from '../utils/api';
 
 import Header from '../components/molecules/Header';
 import TabBar from '../components/molecules/TabBar';
-
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'TaskDetail'>;
 
@@ -22,37 +20,44 @@ export default function TaskDetailScreen() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [confirmedSubtasks, setConfirmedSubtasks] = useState<{ text: string; checked: boolean }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<{ picture: string } | null>(null);
+
+  const fetchTaskDetails = async () => {
+    try {
+      const response = await api.get('/tasks');
+      const foundTask = response.data.find((t: any) => t.id === task.id);
+
+      if (foundTask?.subtasks) {
+        const formattedSubtasks = foundTask.subtasks.map((sub: any) => ({
+          text: sub.title,
+          checked: sub.done,
+        }));
+        setConfirmedSubtasks(formattedSubtasks);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar subtasks da API:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchTaskDetails = async () => {
+    const fetchProfile = async () => {
       try {
-        const token = await storage.getToken();
-        if (!token) throw new Error('Token não encontrado');
-
-        const response = await fetch('http://15.229.11.44:3000/tasks', {
-          headers: {
-            Authorization: 'Bearer ' + token,
-          },
-        });
-
-        const data = await response.json();
-        const foundTask = data.find((t: any) => t.id === task.id);
-
-        if (foundTask?.subtasks) {
-          const formattedSubtasks = foundTask.subtasks.map((sub: any) => ({
-            text: sub.title,
-            checked: sub.done,
-          }));
-          setConfirmedSubtasks(formattedSubtasks);
-        }
+        const response = await api.get('/profile');
+        const data = response.data;
+        const pictureUrl = data.picture?.startsWith('http')
+          ? data.picture
+          : `https://taskly-avatars.s3.us-east-2.amazonaws.com/${data.picture}.png`;
+        setProfile({ picture: pictureUrl });
+        console.log('🔍 Perfil recebido:', pictureUrl);
       } catch (error) {
-        console.error('Erro ao carregar subtasks da API:', error);
-      } finally {
-        setIsLoading(false); // <-- desliga loader
+        console.error('Erro ao carregar perfil:', error);
       }
     };
 
     fetchTaskDetails();
+    fetchProfile();
   }, [task.id]);
 
   const addSubtaskInput = () => {
@@ -65,107 +70,70 @@ export default function TaskDetailScreen() {
     setSubtaskInputs(updatedInputs);
   };
 
-const confirmSubtask = async (index: number) => {
-  const inputText = subtaskInputs[index].trim();
-  if (!inputText) return;
+  const confirmSubtask = async (index: number) => {
+    const inputText = subtaskInputs[index].trim();
+    if (!inputText) return;
 
-  try {
-    const token = await storage.getToken();
-    if (!token) throw new Error('Token não encontrado');
+    try {
+      const newSubtask = { title: inputText, done: false };
 
-    // Monta nova subtask
-    const newSubtask = { title: inputText, done: false };
+      const updatedSubtasks = [
+        ...confirmedSubtasks.map(s => ({
+          title: s.text,
+          done: s.checked,
+        })),
+        newSubtask,
+      ];
 
-    // Busca subtasks atuais da API (se necessário, ou mantenha localmente com estado)
-    const updatedSubtasks = [...confirmedSubtasks.map(s => ({ title: s.text, done: s.checked })), newSubtask];
+      console.log('🛰️ Enviando subtasks para API:', updatedSubtasks);
 
-    // Atualiza tarefa com novas subtasks
-    const response = await fetch(`http://15.229.11.44:3000/tasks/${task.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({
-        subtasks: updatedSubtasks
-      }),
-    });
+      await api.put(`/tasks/${task.id}`, {
+        title: task.title,
+        description: task.description,
+        priority: Number(task.prioridade) || 1,
+        deadline: task.prazo?.trim() || '31/12/2020',
+        done: task.done || false,
+        subtasks: updatedSubtasks,
+      });
 
-    if (!response.ok) throw new Error('Erro ao criar subtask');
+      await fetchTaskDetails(); // Atualiza a lista após salvar
 
-    // Limpa input e atualiza estado local
-    const updatedInputs = [...subtaskInputs];
-    updatedInputs.splice(index, 1);
-    setSubtaskInputs(updatedInputs);
+      const updatedInputs = [...subtaskInputs];
+      updatedInputs.splice(index, 1);
+      setSubtaskInputs(updatedInputs);
+    } catch (error) {
+      console.error('Erro ao enviar subtask para API:', error);
+      Alert.alert('Erro', 'Erro ao criar subtask');
+    }
+  };
 
-    setConfirmedSubtasks(prev => [...prev, { text: inputText, checked: false }]);
-
-  } catch (error) {
-    console.error('Erro ao enviar subtask para API:', error);
-    Alert.alert('Erro', 'Erro ao criar subtask');
-  }
-};
 
   const toggleSubtaskChecked = (index: number) => {
     const updated = [...confirmedSubtasks];
-
-    if (typeof updated[index] === 'object' && 'checked' in updated[index]) {
-      updated[index] = {
-        ...updated[index],
-        checked: !updated[index].checked,
-      };
-      setConfirmedSubtasks(updated);
-    } else {
-      console.warn('Formato inválido de subtask em:', updated[index]);
-    }
+    updated[index] = {
+      ...updated[index],
+      checked: !updated[index].checked,
+    };
+    setConfirmedSubtasks(updated);
   };
 
   const deleteTask = async () => {
     try {
-      const token = await storage.getToken();
-      if (!token) {
-        Alert.alert('Erro', 'Token não encontrado.');
-        return;
-      }
-
-      const response = await fetch(`http://15.229.11.44:3000/tasks/${task.id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: 'Bearer ' + token,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao deletar tarefa.');
-      }
-
+      await api.delete(`/tasks/${task.id}`);
       Alert.alert('Sucesso', 'Tarefa resolvida com sucesso!');
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'HomePage' }],
-      });
+      navigation.reset({ index: 0, routes: [{ name: 'HomePage' }] });
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível resolver a tarefa.');
       console.error(error);
     }
   };
 
-
   const startEditing = (index: number) => {
     setEditingIndex(index);
   };
 
-  function getPriorityStyle(priority: string) {
-    switch (priority) {
-      case 'ALTA':
-        return { backgroundColor: '#32C25B' };
-      case 'MEDIA':
-        return { backgroundColor: '#32C25B' };
-      case 'BAIXA':
-        return { backgroundColor: '#32C25B' };
-      default:
-        return { backgroundColor: '#32C25B' };
-    }
+  function getPriorityStyle() {
+    return { backgroundColor: '#32C25B' };
   }
 
   return (
@@ -176,17 +144,11 @@ const confirmSubtask = async (index: number) => {
         </View>
       ) : (
         <>
-          {/* Header e Conteúdo */}
           <View style={styles.container}>
             <Header
-              onBack={() =>
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'HomePage' }],
-                })
-              }
+              onBack={() => navigation.reset({ index: 0, routes: [{ name: 'HomePage' }] })}
+              avatarUrl={profile?.picture}
             />
-
             <View style={styles.card}>
               <TouchableOpacity
                 style={styles.editIcon}
@@ -216,7 +178,7 @@ const confirmSubtask = async (index: number) => {
 
               <Text style={styles.label}>Prioridade</Text>
               {task.prioridade ? (
-                <View style={[styles.priorityChip, getPriorityStyle(task.prioridade)]}>
+                <View style={[styles.priorityChip, getPriorityStyle()]}>
                   <Text style={styles.priorityChipText}>{task.prioridade.toUpperCase()}</Text>
                 </View>
               ) : (

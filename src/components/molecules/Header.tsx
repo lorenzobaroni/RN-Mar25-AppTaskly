@@ -5,13 +5,14 @@ import Feather from 'react-native-vector-icons/Feather';
 
 type Props = {
   onBack: () => void;
+  avatarUrl?: string;
 };
 
 const BackIcon = ({ size, color }: { size: number; color: string }) => (
-    <Feather name="chevron-left" size={size} color={color} />
+  <Feather name="chevron-left" size={size} color={color} />
 );
 
-export default function Header({ onBack }: Props) {
+export default function Header({ onBack, avatarUrl }: Props) {
   return (
     <View style={styles.header}>
       <IconButton
@@ -21,7 +22,14 @@ export default function Header({ onBack }: Props) {
         onPress={onBack}
       />
       <Text style={styles.title}>TASKLY</Text>
-      <Avatar.Image size={45} source={require('../../assets/avatars/ellipse1.png')} />
+      <Avatar.Image
+        size={45}
+        source={
+          avatarUrl
+            ? { uri: avatarUrl }
+            : require('../../assets/avatars/ellipse1.png')
+        }
+      />
     </View>
   );
 }
