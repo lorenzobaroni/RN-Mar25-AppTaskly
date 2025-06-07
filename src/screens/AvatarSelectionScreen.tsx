@@ -13,11 +13,11 @@ import Button from '../components/atoms/Button';
 import { profileService } from '../domain/profile';
 
 const avatars = [
-    require('../assets/avatars/avatar1.png'),
-    require('../assets/avatars/avatar2.png'),
-    require('../assets/avatars/avatar3.png'),
-    require('../assets/avatars/avatar4.png'),
-    require('../assets/avatars/avatar5.png'),
+    'https://taskly-avatars.s3.us-east-2.amazonaws.com/avatar_1.png',
+    'https://taskly-avatars.s3.us-east-2.amazonaws.com/avatar_2.png',
+    'https://taskly-avatars.s3.us-east-2.amazonaws.com/avatar_3.png',
+    'https://taskly-avatars.s3.us-east-2.amazonaws.com/avatar_4.png',
+    'https://taskly-avatars.s3.us-east-2.amazonaws.com/avatar_5.png',
 ];
 
 const borderColors = ['#5B3CC4', '#E6E0F7', '#32C25B', '#E63946', '#B58B46'];
@@ -70,7 +70,7 @@ export default function AvatarSelectionScreen() {
                         ]}
                     >
                         <Image
-                            source={avatar}
+                            source={{ uri: avatar }}
                             style={[
                                 styles.avatarImage,
                                 selected !== null && selected !== index && styles.avatarImageNotSelected,
@@ -95,7 +95,7 @@ export default function AvatarSelectionScreen() {
                         ]}
                     >
                         <Image
-                            source={avatar}
+                            source={{ uri: avatar }}
                             style={[
                                 styles.avatarImage,
                                 selected !== null && selected !== index + 3 && styles.avatarImageNotSelected,

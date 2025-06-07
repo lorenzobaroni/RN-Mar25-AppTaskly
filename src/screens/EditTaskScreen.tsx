@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from '../navigation/types';
 import { useRoute } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { storage } from '../utils/storage';
+import { useUserProfile } from '../hooks/useUserProfile';
+import api from '../utils/api';
 
 import Header from '../components/molecules/Header';
 import TabBar from '../components/molecules/TabBar';
@@ -33,7 +34,7 @@ function isValidDate(dateStr: string): boolean {
   }
   const [_, dayStr, monthStr, yearStr] = dateStr.match(regex) || [];
   const day = parseInt(dayStr, 10);
-  const month = parseInt(monthStr, 10) - 1; // meses são de 0 a 11
+  const month = parseInt(monthStr, 10) - 1;
   const year = parseInt(yearStr, 10);
 
   const date = new Date(year, month, day);
@@ -57,8 +58,16 @@ export default function EditTaskScreen() {
   );
   const [dueDate, setDueDate] = useState(task.prazo || '');
   const [dateError, setDateError] = useState('');
+  const { profile, isLoading } = useUserProfile();
 
-
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+        <Text style={{ marginBottom: 10 }}>Carregando perfil...</Text>
+        <ActivityIndicator size="large" color="#5B3CC4" />
+      </View>
+    );
+  }
 
   const handleAddTag = () => {
     if (tagInput.trim() !== '' && !tagsList.includes(tagInput.trim())) {
@@ -73,32 +82,27 @@ export default function EditTaskScreen() {
 
   const handleConfirmEdit = async () => {
     try {
-      const token = await storage.getToken();
-      if (!token) throw new Error('Token não encontrado');
+      if (!dueDate || dueDate.trim() === '') {
+        setDateError('Preencha a data antes de confirmar');
+        return;
+      }
 
-      // Dados que serão enviados para a API
+      if (!isValidDate(dueDate)) {
+        setDateError('Data inválida');
+        return;
+      }
+
       const updatedAPIData = {
         title,
         description,
         tags: tagsList,
-        done: task.done, // mantém o valor original
+        priority: selectedPriority === 'ALTA' ? 1 : selectedPriority === 'MEDIA' ? 2 : 3,
+        deadline: dueDate,
+        done: task.done,
       };
 
-      // Atualiza os dados no servidor
-      const response = await fetch(`http://15.229.11.44:3000/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + token,
-        },
-        body: JSON.stringify(updatedAPIData),
-      });
+      await api.put(`/tasks/${task.id}`, updatedAPIData);
 
-      if (!response.ok) {
-        throw new Error('Erro ao atualizar tarefa');
-      }
-
-      // Dados locais que não estão na API
       const updatedTask = {
         ...task,
         ...updatedAPIData,
@@ -107,28 +111,28 @@ export default function EditTaskScreen() {
       };
 
       navigation.navigate('TaskDetail', { task: updatedTask });
-
     } catch (error) {
-      console.error(error);
+      console.error('Erro ao atualizar tarefa:', error);
     }
   };
 
-
+  const avatarUrl = profile?.picture?.startsWith('http')
+    ? profile.picture
+    : `https://taskly-avatars.s3.us-east-2.amazonaws.com/${profile?.picture}.png`;
 
   return (
     <View style={styles.viewOne}>
       <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.screen}>
-            {/* Header */}
             <View style={styles.container}>
-              <Header onBack={() => navigation.goBack()} />
+              <Header
+                onBack={() => navigation.goBack()}
+                avatarUrl={avatarUrl}
+              />
               <View style={styles.card}>
                 <Text style={styles.label1}>Título</Text>
                 <TextInput
